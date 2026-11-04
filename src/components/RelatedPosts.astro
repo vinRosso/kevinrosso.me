@@ -1,0 +1,63 @@
+---
+import PostCard from './PostCard.astro';
+import { getListedPosts, tagSlug, type Post } from '../lib/posts';
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const mine = new Set(post.data.tags.map(tagSlug));
+const others = (await getListedPosts()).filter((p) => p.id !== post.id);
+
+// Most shared tags first, then newest (the list is already newest first).
+const scored = others
+  .map((p) => ({ p, shared: p.data.tags.filter((t) => mine.has(tagSlug(t))).length }))
+  .sort((a, b) => b.shared - a.shared);
+
+const related = scored.filter((x) => x.shared > 0).map((x) => x.p);
+// Not enough in common: complete with the newest posts so the reader always has somewhere to go.
+const posts = [...related, ...others.filter((p) => !related.includes(p))].slice(0, 3);
+const title = related.length > 0 ? 'Related posts' : 'More posts';
+---
+
+{
+  posts.length > 0 && (
+    <section class="related" aria-labelledby="related-title">
+      <h2 id="related-title">{title}</h2>
+      <div class="grid" style={`--n: ${posts.length}`}>
+        {posts.map((p) => (
+          <PostCard post={p} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .related {
+    margin-top: 72px;
+  }
+
+  h2 {
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+    filter: url(#halo-sm);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .grid:has(> :only-child) {
+    max-width: 420px;
+  }
+
+  @media (max-width: 760px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

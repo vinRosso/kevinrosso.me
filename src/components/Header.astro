@@ -1,0 +1,76 @@
+---
+import { Image } from 'astro:assets';
+import logo from '../assets/logo-w.webp';
+import { site } from '../data/site';
+
+interface Props {
+  home?: boolean;
+}
+const { home = false } = Astro.props;
+---
+
+<header class:list={['site-header', { 'show-name': !home }]}>
+  <a class="brand" href={home ? '#landing' : '/'} aria-label={`${site.name}, home`}>
+    <Image src={logo} alt="" class="brand-logo" height={64} loading="eager" />
+    <span class="brand-name">{site.name}</span>
+  </a>
+</header>
+
+<script>
+  const header = document.querySelector<HTMLElement>('.site-header');
+  const landing = document.getElementById('landing');
+  if (header && landing && 'IntersectionObserver' in window) {
+    new IntersectionObserver(
+      ([entry]) => header.classList.toggle('show-name', !entry.isIntersecting),
+      { threshold: 0.35 },
+    ).observe(landing);
+  }
+</script>
+
+<style>
+  .site-header {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 100;
+    padding: 2svh 5svh 4svh;
+    background: linear-gradient(#101010 30%, transparent);
+    pointer-events: none;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    color: #fff;
+    text-decoration: none;
+    pointer-events: auto;
+  }
+
+  .brand-logo {
+    width: auto;
+    height: 3svh;
+    min-height: 22px;
+  }
+
+  .brand-name {
+    font-size: clamp(1rem, 1.5vw, 1.6rem);
+    font-weight: 200;
+    line-height: 1;
+    opacity: 0;
+    transform: translateX(60px);
+    transition:
+      opacity 0.5s ease,
+      transform 0.5s ease;
+  }
+
+  .show-name .brand-name {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (max-width: 479px) {
+    .site-header {
+      padding: 3svh;
+    }
+  }
+</style>

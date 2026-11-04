@@ -1,0 +1,67 @@
+---
+import Base from '../../../layouts/Base.astro';
+import PostCard from '../../../components/PostCard.astro';
+import TagBar from '../../../components/TagBar.astro';
+import { getListedPosts, getTags, tagSlug } from '../../../lib/posts';
+
+export async function getStaticPaths() {
+  const tags = await getTags();
+  const posts = await getListedPosts();
+  return tags.map((tag) => ({
+    params: { tag: tag.slug },
+    props: { tag, posts: posts.filter((p) => p.data.tags.some((t) => tagSlug(t) === tag.slug)) },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+---
+
+<!-- Tag pages are thin duplicates of the blog list: kept out of search results. -->
+<Base title={`Posts tagged ${tag.name}`} description={`All the posts tagged ${tag.name}.`} noindex>
+  <section class="blog-page">
+    <h1 class="lead">{tag.name}</h1>
+    <p class="intro">{posts.length} {posts.length === 1 ? 'post' : 'posts'} tagged <strong>{tag.name}</strong></p>
+
+    <TagBar active={tag.slug} />
+
+    <div class="grid">
+      {posts.map((post) => <PostCard post={post} />)}
+    </div>
+  </section>
+</Base>
+
+<style>
+  .blog-page {
+    position: relative;
+    min-height: 100svh;
+    padding: 140px var(--gutter) calc(var(--nav-h) + 80px);
+  }
+
+  .lead {
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    font-weight: 700;
+  }
+
+  .intro {
+    position: relative;
+    z-index: 2;
+    margin: 12px 0 36px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .intro strong {
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .grid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+</style>

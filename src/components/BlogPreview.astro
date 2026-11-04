@@ -1,0 +1,97 @@
+---
+import PostCard from './PostCard.astro';
+import { getListedPosts } from '../lib/posts';
+
+// Tiles per group: 3 fills one row. Keep it a multiple of 3.
+const PER_GROUP = 3;
+
+const all = await getListedPosts();
+
+// Featured: the posts marked `featured: true`, newest first.
+// Latest: the newest posts that are not already featured above.
+const featured = all.filter((p) => p.data.featured).slice(0, PER_GROUP);
+const latest = all.filter((p) => !p.data.featured).slice(0, PER_GROUP);
+
+const groups = [
+  { id: 'featured', label: 'Featured work', posts: featured },
+  { id: 'latest', label: 'Latest posts', posts: latest },
+].filter((g) => g.posts.length > 0);
+---
+
+<section id="blog" class="blog">
+  {
+    groups.length > 0 ? (
+      groups.map((group) => (
+        <div class="group">
+          <h2 class="lead">{group.label}</h2>
+          <div class:list={['tiles-b', `count-${group.posts.length}`]}>
+            {group.posts.map((post) => <PostCard post={post} />)}
+          </div>
+        </div>
+      ))
+    ) : (
+      <p class="empty">New posts coming soon.</p>
+    )
+  }
+
+  <a class="btn" href="/blog/">Explore more posts</a>
+</section>
+
+<style>
+  .blog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 80px;
+    padding: 120px var(--gutter) 80px;
+  }
+
+  .group {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    width: 100%;
+  }
+
+  .blog > :global(.btn),
+  .empty {
+    position: relative;
+    z-index: 2;
+  }
+
+  .empty {
+    color: var(--muted);
+  }
+
+  /* ---------- Image tiles ---------- */
+  .tiles-b {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+    gap: 20px;
+    width: min(100%, 1200px);
+  }
+
+  .tiles-b.count-1 {
+    --cols: 1;
+    max-width: 520px;
+  }
+
+  .tiles-b.count-2 {
+    --cols: 2;
+    max-width: 880px;
+  }
+
+  @media (max-width: 991px) {
+    .tiles-b.tiles-b {
+      --cols: 1;
+      max-width: 520px;
+    }
+
+  }
+</style>

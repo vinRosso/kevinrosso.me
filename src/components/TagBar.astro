@@ -1,0 +1,72 @@
+---
+import { getTags } from '../lib/posts';
+
+interface Props {
+  /** Slug of the tag being shown; omit on the main blog page. */
+  active?: string;
+}
+
+const { active } = Astro.props;
+const tags = await getTags();
+---
+
+{
+  tags.length > 0 && (
+    <nav class="tag-bar" aria-label="Filter posts by tag">
+      <a href="/blog/" class:list={['chip', { on: !active }]} aria-current={!active ? 'page' : undefined}>
+        All
+      </a>
+      {tags.map((t) => (
+        <a
+          href={`/blog/tag/${t.slug}/`}
+          class:list={['chip', { on: active === t.slug }]}
+          aria-current={active === t.slug ? 'page' : undefined}
+        >
+          {t.name} <span class="count">{t.count}</span>
+        </a>
+      ))}
+    </nav>
+  )
+}
+
+<style>
+  .tag-bar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    max-width: 900px;
+    margin: 0 auto 48px;
+  }
+
+  .chip {
+    padding: 6px 16px;
+    border: 1px solid #3a3a3a;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .chip:hover,
+  .chip:focus-visible {
+    border-color: var(--red-soft);
+    color: #fff;
+  }
+
+  .chip.on {
+    border-color: var(--red);
+    background: var(--red);
+    color: #fff;
+  }
+
+  .count {
+    margin-left: 4px;
+    opacity: 0.6;
+    font-size: 0.8em;
+  }
+</style>

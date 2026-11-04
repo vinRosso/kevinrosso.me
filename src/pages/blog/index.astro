@@ -1,0 +1,75 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import TagBar from '../../components/TagBar.astro';
+import { getListedPosts } from '../../lib/posts';
+
+const posts = await getListedPosts();
+const dev = import.meta.env.DEV;
+---
+
+<Base
+  title="Blog"
+  description="Rigging, tools and pipeline notes by Kevin Rosso: Maya and Python tools, deformation, USD and Unreal Engine experiments."
+  jsonLd={[{ '@type': 'Blog', name: 'Kevin Rosso - Blog', url: `${String(Astro.site).replace(/\/$/, '')}/blog/`, author: { '@type': 'Person', name: 'Kevin Rosso' } }]}
+>
+  <section class="blog-page">
+    <h1 class="lead">Blog</h1>
+    <p class="intro">Rigs, tools and pipeline experiments.</p>
+
+    <TagBar />
+
+    <div class="grid">
+      {posts.map((post) => <PostCard post={post} />)}
+    </div>
+
+    {
+      dev && (
+        <p class="dev-note">
+          Dev only: <a href="/blog/formatting-guide/">formatting guide</a>, every Markdown option in one post.
+          Copy its folder to start a new post.
+        </p>
+      )
+    }
+  </section>
+</Base>
+
+<style>
+  .blog-page {
+    position: relative;
+    min-height: 100svh;
+    padding: 140px var(--gutter) calc(var(--nav-h) + 80px);
+  }
+
+  .lead {
+    font-size: clamp(2.4rem, 6vw, 4.5rem);
+    font-weight: 700;
+  }
+
+  .intro {
+    position: relative;
+    z-index: 2;
+    margin: 12px 0 36px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .grid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .dev-note {
+    position: relative;
+    z-index: 2;
+    margin: 56px 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+</style>

@@ -1,0 +1,347 @@
+---
+// Background lines generated in code from the original artwork.
+// Each pair (white + red) is defined on a 1920x1080 artboard, exactly like
+// the original SVGs, and is mapped at runtime onto the real area of the page
+// it belongs to (hero, reel, story, blog + contacts). The curves stretch
+// with the layout but keep their shape: diverging, converging, sinuous.
+// Redrawn on resize, drawn progressively on scroll.
+---
+
+<div class="page-lines" aria-hidden="true">
+  <svg xmlns="http://www.w3.org/2000/svg"></svg>
+</div>
+
+<script>
+  type Pt = [number, number];
+  // A curve: start point + cubic segments [c1, c2, end] on the 1920x1080 artboard.
+  type Curve = { start: Pt; segs: [Pt, Pt, Pt][] };
+  type Pair = { white: Curve; red: Curve };
+  type Area = { top: number; height: number; keepAspect?: boolean };
+
+  const ART_W = 1920;
+  const ART_H = 1080;
+
+  // The original artwork (line-landing / line-reel / line-works / line-contacts).
+  const ART: Record<'landing' | 'reel' | 'works' | 'contacts', Pair> = {
+    landing: {
+      white: { start: [0, 456.4], segs: [[[300, 380.3], [438.9, 173], [494.3, 0]]] },
+      red: { start: [0, 516.4], segs: [[[335.6, 431.2], [469.7, 181.8], [510.6, 0]]] },
+    },
+    reel: {
+      white: { start: [0, 193.5], segs: [[[441.3, 223], [1109.5, 775.9], [1920, 547.9]]] },
+      red: { start: [0, 217], segs: [[[352.7, 259], [1158.1, 875.5], [1920, 825.1]]] },
+    },
+    works: {
+      white: { start: [0, 929.5], segs: [[[404.5, 550.5], [1133, 239.1], [1920, 131.1]]] },
+      red: { start: [197.1, 1080], segs: [[[665.5, 431.3], [1559.1, 190.7], [1920, 143.3]]] },
+    },
+    // Ending, fitted on Kevin's sketch: both lines come down, flatten out
+    // under the contacts, then bend down again and leave from the bottom
+    // right corner. One inflection each, like the original artwork.
+    contacts: {
+      white: { start: [0, 700], segs: [[[400, 985], [1756.6, 959.8], [1930, 1125]]] },
+      red: {
+        start: [199.1, 0],
+        segs: [
+          [[92.1, 184.5], [68.8, 506.5], [387, 696.5]],
+          [[797, 941.3], [1750.4, 952.7], [1965, 1124.8]],
+        ],
+      },
+    },
+  };
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const layer = document.querySelector<HTMLElement>('.page-lines');
+  const svg = layer?.querySelector('svg');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  type Seg = [Pt, Pt, Pt];
+  type Mapped = { start: Pt; segs: Seg[] };
+
+  function box(selector: string) {
+    const el = document.querySelector<HTMLElement>(selector);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { top: r.top + scrollY, bottom: r.bottom + scrollY };
+  }
+
+  // Artboard (1920x1080) -> page pixels, for one area.
+  function mapCurve(curve: Curve, W: number, area: Area): Mapped {
+    const sx = W / ART_W;
+    const sy = area.keepAspect ? sx : area.height / ART_H;
+    const m = ([x, y]: Pt): Pt => [x * sx, area.top + y * sy];
+    return { start: m(curve.start), segs: curve.segs.map(([a, b, c]) => [m(a), m(b), m(c)] as Seg) };
+  }
+
+  function reverse(c: Mapped): Mapped {
+    const pts: Pt[] = [c.start, ...c.segs.flatMap((s) => s)];
+    pts.reverse();
+    const segs: Seg[] = [];
+    for (let i = 1; i < pts.length; i += 3) segs.push([pts[i], pts[i + 1], pts[i + 2]]);
+    return { start: pts[0], segs };
+  }
+
+  const end = (c: Mapped): Pt => c.segs[c.segs.length - 1][2];
+  const unit = ([x, y]: Pt): Pt => {
+    const l = Math.hypot(x, y) || 1;
+    return [x / l, y / l];
+  };
+
+  // Smooth joint between the end of A and the start of B: the bridge leaves A
+  // in its own direction and enters B in B's direction, so there is no corner.
+  function bridge(a: Mapped, b: Mapped): Seg {
+    const p = end(a);
+    const lastCtrl = a.segs[a.segs.length - 1][1];
+    const q = b.start;
+    const firstCtrl = b.segs[0][0];
+    const ta = unit([p[0] - lastCtrl[0], p[1] - lastCtrl[1]]);
+    const tb = unit([firstCtrl[0] - q[0], firstCtrl[1] - q[1]]);
+    const d = Math.max(60, Math.hypot(q[0] - p[0], q[1] - p[1]) * 0.45);
+    return [[p[0] + ta[0] * d, p[1] + ta[1] * d], [q[0] - tb[0] * d, q[1] - tb[1] * d], q];
+  }
+
+  // When two pieces meet inside the page, they are fused instead of bridged:
+  // the end of A and the start of B are replaced by a single joint J in the
+  // middle, with one shared tangent, so the curve flows through without knots.
+  function fuse(a: Mapped, b: Mapped): void {
+    const lastA = a.segs[a.segs.length - 1];
+    const firstB = b.segs[0];
+    const p = lastA[2];
+    const q = b.start;
+    const j: Pt = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    const ta = unit([p[0] - lastA[1][0], p[1] - lastA[1][1]]);
+    const tb = unit([firstB[0][0] - q[0], firstB[0][1] - q[1]]);
+    const t = unit([ta[0] + tb[0], ta[1] + tb[1]]);
+    // Handle lengths chosen so the curvature is the same on both sides of J
+    // (G2 continuity): no flat spot and no sudden bend at the joint.
+    // Curvature at J is (2/3)*h/k^2, with h = distance of the next control
+    // point from the tangent line and k = handle length.
+    const cross = (u: Pt, v: Pt) => u[0] * v[1] - u[1] * v[0];
+    const prevCtrl = lastA[0];
+    const nextCtrl = firstB[1];
+    const hA = cross(t, [prevCtrl[0] - j[0], prevCtrl[1] - j[1]]);
+    const hB = cross(t, [nextCtrl[0] - j[0], nextCtrl[1] - j[1]]);
+    const chordA = Math.hypot(j[0] - (a.segs.length > 1 ? a.segs[a.segs.length - 2][2][0] : a.start[0]), j[1] - (a.segs.length > 1 ? a.segs[a.segs.length - 2][2][1] : a.start[1]));
+    const chordB = Math.hypot(firstB[2][0] - j[0], firstB[2][1] - j[1]);
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    let ka = clamp(Math.hypot(p[0] - lastA[1][0], p[1] - lastA[1][1]), chordA * 0.12, chordA * 0.6);
+    let kb = clamp(Math.hypot(firstB[0][0] - q[0], firstB[0][1] - q[1]), chordB * 0.12, chordB * 0.6);
+    if (hA * hB > 0) {
+      // Same side of the tangent: match curvatures, kb = ka * sqrt(hB / hA).
+      kb = ka * Math.sqrt(hB / hA);
+      if (kb > chordB * 0.6 || kb < chordB * 0.12) {
+        kb = clamp(kb, chordB * 0.12, chordB * 0.6);
+        ka = kb * Math.sqrt(hA / hB);
+      }
+    }
+    lastA[1] = [j[0] - t[0] * ka, j[1] - t[1] * ka];
+    lastA[2] = j;
+    b.start = j;
+    firstB[0] = [j[0] + t[0] * kb, j[1] + t[1] * kb];
+  }
+
+  function toD(parts: Mapped[], W: number, H: number): string {
+    const f = ([x, y]: Pt) => `${x.toFixed(1)},${y.toFixed(1)}`;
+    const inside = ([x, y]: Pt) => x > 2 && x < W - 2 && y > 2 && y < H - 2;
+    const fused = parts.map((p, i) => i > 0 && inside(end(parts[i - 1])) && inside(p.start));
+    fused.forEach((yes, i) => yes && fuse(parts[i - 1], parts[i]));
+
+    let d = `M${f(parts[0].start)}`;
+    parts.forEach((part, i) => {
+      if (i > 0 && !fused[i]) {
+        const [c1, c2, q] = bridge(parts[i - 1], part);
+        d += `C${f(c1)} ${f(c2)} ${f(q)}`;
+      }
+      for (const [c1, c2, e] of part.segs) d += `C${f(c1)} ${f(c2)} ${f(e)}`;
+    });
+    return d;
+  }
+
+  // Where each artwork goes on the current page, top to bottom, and in which
+  // direction it is travelled so that the pieces chain into one line.
+  function layout(W: number, vh: number) {
+    const about = box('#about');
+    const posters = box('.posters');
+    const story = box('.story');
+    const blog = box('#blog');
+    const contacts = box('#contacts');
+    const list: { name: keyof typeof ART; area: Area; reversed: boolean }[] = [];
+
+    // Hero: original proportions, fitted to the width. Travelled top -> left edge.
+    list.push({ name: 'landing', area: { top: 0, height: Math.min(vh, (W / ART_W) * ART_H), keepAspect: true }, reversed: true });
+
+    if (about && posters) {
+      const top = about.top + 40;
+      list.push({ name: 'reel', area: { top, height: posters.bottom - top + 60 }, reversed: false });
+    }
+    if (story) {
+      const pad = (story.bottom - story.top) * 0.12;
+      // Travelled from the right edge down to the bottom left.
+      list.push({ name: 'works', area: { top: story.top - pad, height: story.bottom - story.top + pad }, reversed: true });
+    }
+    if (blog && contacts) {
+      list.push({ name: 'contacts', area: { top: blog.top, height: contacts.bottom - blog.top }, reversed: false });
+    }
+    return list;
+  }
+
+  // Reveal mask: everything above `depth` is visible, with a soft fade
+  // of FADE px at the leading edge, so the lines appear with a gradient
+  // instead of a hard tip while you scroll.
+  const FADE = 180;
+  let reveal: SVGLinearGradientElement | null = null;
+  let pageH = 0;
+  let shown = 0; // current revealed depth (animated)
+  let target = 0; // depth requested by the scroll position
+  let animating = false;
+
+  function build() {
+    if (!layer || !svg) return;
+    const W = document.documentElement.clientWidth;
+    layer.style.height = '0px';
+    const H = document.documentElement.scrollHeight;
+    pageH = H;
+    layer.style.height = `${H}px`;
+    svg.setAttribute('width', String(W));
+    svg.setAttribute('height', String(H));
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.replaceChildren();
+
+    const defs = document.createElementNS(NS, 'defs');
+    reveal = document.createElementNS(NS, 'linearGradient');
+    reveal.setAttribute('id', 'pl-reveal');
+    reveal.setAttribute('gradientUnits', 'userSpaceOnUse');
+    reveal.setAttribute('x1', '0');
+    reveal.setAttribute('x2', '0');
+    for (const [offset, opacity] of [['0', '1'], ['1', '0']]) {
+      const stop = document.createElementNS(NS, 'stop');
+      stop.setAttribute('offset', offset);
+      stop.setAttribute('stop-color', '#fff');
+      stop.setAttribute('stop-opacity', opacity);
+      reveal.appendChild(stop);
+    }
+    const mask = document.createElementNS(NS, 'mask');
+    mask.setAttribute('id', 'pl-mask');
+    mask.setAttribute('maskUnits', 'userSpaceOnUse');
+    mask.setAttribute('x', '0');
+    mask.setAttribute('y', '0');
+    mask.setAttribute('width', String(W));
+    mask.setAttribute('height', String(H));
+    const rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('width', String(W));
+    rect.setAttribute('height', String(H));
+    rect.setAttribute('fill', 'url(#pl-reveal)');
+    mask.appendChild(rect);
+    defs.append(reveal, mask);
+    svg.appendChild(defs);
+
+    const group = document.createElementNS(NS, 'g');
+    group.setAttribute('mask', 'url(#pl-mask)');
+    svg.appendChild(group);
+
+    const pieces = layout(W, innerHeight);
+    for (const color of ['white', 'red'] as const) {
+      const parts = pieces.map(({ name, area, reversed }) => {
+        const c = mapCurve(ART[name][color], W, area);
+        return reversed ? reverse(c) : c;
+      });
+      const el = document.createElementNS(NS, 'path');
+      el.setAttribute('class', `pl-${color}`);
+      el.setAttribute('d', toD(parts, W, H));
+      group.appendChild(el);
+    }
+
+    target = targetDepth();
+    if (!shown || reduceMotion) shown = target;
+    paint();
+  }
+
+  function targetDepth(): number {
+    // At the bottom of the page the lines are always complete.
+    const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 4;
+    if (atEnd || reduceMotion) return pageH + FADE;
+    return scrollY + innerHeight * 0.9;
+  }
+
+  function paint() {
+    if (!reveal) return;
+    reveal.setAttribute('y1', String(shown - FADE));
+    reveal.setAttribute('y2', String(shown));
+  }
+
+  // Ease the revealed depth towards the scroll position (only forwards:
+  // lines already drawn stay drawn).
+  function tick() {
+    const diff = target - shown;
+    if (Math.abs(diff) < 0.5) {
+      shown = target;
+      paint();
+      animating = false;
+      return;
+    }
+    shown += diff * 0.12;
+    paint();
+    requestAnimationFrame(tick);
+  }
+
+  function onScroll() {
+    target = Math.max(target, targetDepth());
+    if (!animating) {
+      animating = true;
+      requestAnimationFrame(tick);
+    }
+  }
+
+  if (layer) {
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(build);
+    };
+    new ResizeObserver(schedule).observe(document.body);
+    addEventListener('resize', schedule);
+    addEventListener('scroll', onScroll, { passive: true });
+    document.fonts?.ready.then(schedule);
+    build();
+  }
+</script>
+
+<style>
+  .page-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    /* The lines fade out at the end of the page, like they fade in under the header at the top. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
+  }
+
+  svg {
+    display: block;
+  }
+
+  .page-lines :global(path) {
+    fill: none;
+    stroke-width: 3px;
+    stroke-linecap: round;
+  }
+
+  .page-lines :global(.pl-white) {
+    stroke: #fff;
+  }
+
+  .page-lines :global(.pl-red) {
+    stroke: var(--red);
+  }
+
+  @media (max-width: 767px) {
+    .page-lines :global(path) {
+      stroke-width: 2px;
+    }
+  }
+
+</style>

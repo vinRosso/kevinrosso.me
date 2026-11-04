@@ -1,0 +1,107 @@
+---
+interface Props {
+  home?: boolean;
+}
+const { home = false } = Astro.props;
+const prefix = home ? '' : '/';
+const items = [
+  { id: 'landing', label: 'Home' },
+  { id: 'about', label: 'About' },
+  { id: 'blog', label: 'Blog' },
+  { id: 'contacts', label: 'Contacts' },
+];
+const isBlog = Astro.url.pathname.startsWith('/blog');
+---
+
+<nav class="navbar" aria-label="Sections">
+  <ul>
+    {
+      items.map((item) => (
+        <li>
+          <a
+            href={item.id === 'blog' && !home ? '/blog/' : `${prefix}#${item.id}`}
+            data-section={item.id}
+            class:list={['nav-link', { current: !home && isBlog && item.id === 'blog' }]}
+          >
+            {item.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<script>
+  // Underline the section currently on screen (home page only).
+  const links = document.querySelectorAll<HTMLAnchorElement>('.nav-link[data-section]');
+  const sections = [...links]
+    .map((l) => document.getElementById(l.dataset.section!))
+    .filter((s): s is HTMLElement => !!s);
+
+  if (sections.length && 'IntersectionObserver' in window) {
+    const setCurrent = (id: string) =>
+      links.forEach((l) => {
+        const on = l.dataset.section === id;
+        l.classList.toggle('current', on);
+        if (on) l.setAttribute('aria-current', 'location');
+        else l.removeAttribute('aria-current');
+      });
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length) setCurrent((visible[0].target as HTMLElement).id);
+      },
+      { rootMargin: '-45% 0px -45% 0px' },
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+</script>
+
+<style>
+  .navbar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 100;
+    padding: 28px 16px 18px;
+    background: linear-gradient(transparent, #101010 55%);
+  }
+
+  ul {
+    display: flex;
+    justify-content: center;
+    gap: clamp(4px, 2vw, 24px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nav-link {
+    display: inline-block;
+    padding: 6px 10px;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 20px;
+    letter-spacing: 0.25px;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .nav-link:hover {
+    color: #fff;
+  }
+
+  .nav-link.current {
+    color: #fff;
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-position: under;
+  }
+
+  @media (min-width: 1280px) {
+    .nav-link {
+      font-size: 16px;
+    }
+  }
+</style>

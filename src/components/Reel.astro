@@ -1,0 +1,302 @@
+---
+import { getReelConfig } from '../lib/reel';
+
+// Three modes (see src/lib/reel.ts and "npm run reel"):
+// - protected: URL encrypted, unlocked by the password or a private link
+//   https://kevinrosso.me/#reel=<token>
+// - public: everyone sees the reel
+// - none: no reel configured
+const config = await getReelConfig();
+const payload = config.mode === 'protected' ? config.payload : null;
+const publicUrl = config.mode === 'public' ? config.url : null;
+---
+
+<div class="reel" data-reel data-public-url={publicUrl}>
+  <div class="frame">
+    {
+      payload?.hasPassword ? (
+        <form class="gate" data-gate>
+          <p class="gate-title">Password required</p>
+          <p class="gate-text">
+            The reel may contain material under NDA. Enter the password to watch it, or{' '}
+            <a href="#contacts">get in touch</a> to request access.
+          </p>
+          <label class="visually-hidden" for="reel-password">
+            Reel password
+          </label>
+          <div class="gate-row">
+            <input
+              id="reel-password"
+              name="password"
+              type="password"
+              autocomplete="off"
+              placeholder="Password"
+              required
+            />
+            <button class="btn btn--solid" type="submit">
+              Watch
+            </button>
+          </div>
+          <p class="gate-error" role="alert" hidden>
+            Wrong password, please try again.
+          </p>
+        </form>
+      ) : (
+        <div class="gate">
+          <p class="gate-title">Reel available on request</p>
+          <p class="gate-text">
+            <a href="#contacts">Get in touch</a> and I'll send you a private link.
+          </p>
+        </div>
+      )
+    }
+  </div>
+  {payload && <script type="application/json" data-reel-payload set:html={JSON.stringify(payload)} />}
+</div>
+
+<script>
+  import { track } from '../lib/track';
+
+  type Slot = { id?: string; iterations: number; salt: string; iv: string; data: string };
+  type Payload = { slots: Slot[] };
+  type Unlocked = { url: string; label: string };
+
+  const root = document.querySelector<HTMLElement>('[data-reel]');
+  const raw = root?.querySelector('[data-reel-payload]')?.textContent;
+  const STORAGE_KEY = 'reel-key';
+
+  const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+  async function sha256Hex(text: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function decryptSlot(slot: Slot, secret: string): Promise<Unlocked | null> {
+    try {
+      const enc = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveKey']);
+      const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: fromB64(slot.salt), iterations: slot.iterations, hash: 'SHA-256' },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt'],
+      );
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(slot.iv) }, key, fromB64(slot.data));
+      return JSON.parse(new TextDecoder().decode(plain)) as Unlocked;
+    } catch {
+      return null;
+    }
+  }
+
+  // Link tokens go straight to their own slot; passwords try the password slots.
+  async function tryDecrypt(payload: Payload, secret: string): Promise<Unlocked | null> {
+    const id = (await sha256Hex(secret)).slice(0, 16);
+    const linkSlot = payload.slots.find((s) => s.id === id);
+    if (linkSlot) return decryptSlot(linkSlot, secret);
+    for (const slot of payload.slots.filter((s) => !s.id)) {
+      const result = await decryptSlot(slot, secret);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  type VimeoPlayer = { on(event: string, cb: (data: { percent?: number }) => void): void };
+  type VimeoGlobal = { Player: new (el: HTMLIFrameElement) => VimeoPlayer };
+
+  function loadVimeoApi(): Promise<VimeoGlobal | null> {
+    const existing = (window as unknown as { Vimeo?: VimeoGlobal }).Vimeo;
+    if (existing) return Promise.resolve(existing);
+    return new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://player.vimeo.com/api/player.js';
+      s.async = true;
+      s.onload = () => resolve((window as unknown as { Vimeo?: VimeoGlobal }).Vimeo ?? null);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+  }
+
+  async function watchPlayback(iframe: HTMLIFrameElement, label: string) {
+    // Count the first play and when the viewer reaches half of the reel.
+    const Vimeo = await loadVimeoApi();
+    if (!Vimeo) return;
+    const player = new Vimeo.Player(iframe);
+    let played = false;
+    let half = false;
+    player.on('play', () => {
+      if (played) return;
+      played = true;
+      track(`reel/play/${label}`, `Reel played (${label})`);
+    });
+    player.on('timeupdate', (data) => {
+      if (half || (data.percent ?? 0) < 0.5) return;
+      half = true;
+      track(`reel/half/${label}`, `Reel watched 50% (${label})`);
+    });
+  }
+
+  function showPlayer({ url, label }: Unlocked) {
+    const frame = root!.querySelector('.frame')!;
+    const src = new URL(url);
+    src.searchParams.set('badge', '0');
+    src.searchParams.set('autopause', '0');
+    src.searchParams.set('dnt', '1');
+    const iframe = document.createElement('iframe');
+    iframe.src = src.toString();
+    iframe.title = 'Kevin Rosso - Rigging Reel';
+    iframe.allow = 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.replaceChildren(iframe);
+    watchPlayback(iframe, label);
+  }
+
+  function remember(secret: string) {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, secret);
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
+  function recall(): string | null {
+    try {
+      return sessionStorage.getItem(STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  async function init() {
+    if (!root) return;
+
+    // Public mode: no password, show the player right away.
+    if (root.dataset.publicUrl) {
+      showPlayer({ url: root.dataset.publicUrl, label: 'public' });
+      return;
+    }
+    if (!raw) return;
+    const payload = JSON.parse(raw) as Payload;
+
+    // 1. Private link: #reel=<token>. The fragment never reaches the server.
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const token = hash.get('reel');
+    if (token) {
+      history.replaceState(null, '', location.pathname + location.search + '#about');
+    }
+
+    for (const secret of [token, recall()]) {
+      if (!secret) continue;
+      const unlocked = await tryDecrypt(payload, secret);
+      if (unlocked) {
+        remember(secret);
+        showPlayer(unlocked);
+        if (secret === token) {
+          track(`reel/open/${unlocked.label}`, `Reel link opened (${unlocked.label})`);
+          document.getElementById('about')?.scrollIntoView();
+        }
+        return;
+      }
+    }
+
+    // 2. Password form.
+    const form = root.querySelector<HTMLFormElement>('[data-gate]');
+    const error = root.querySelector<HTMLElement>('.gate-error');
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = form.elements.namedItem('password') as HTMLInputElement;
+      const button = form.querySelector('button')!;
+      button.disabled = true;
+      const unlocked = await tryDecrypt(payload, input.value);
+      button.disabled = false;
+      if (unlocked) {
+        remember(input.value);
+        showPlayer(unlocked);
+        track(`reel/open/${unlocked.label}`, `Reel unlocked (${unlocked.label})`);
+      } else {
+        error?.removeAttribute('hidden');
+        input.select();
+      }
+    });
+  }
+
+  init();
+</script>
+
+<style>
+  .reel {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+  }
+
+  .frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 4px;
+    background: linear-gradient(160deg, #1b1b1b, #0c0c0c);
+    box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
+  }
+
+  .frame :global(iframe) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .gate {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .gate-title {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 700;
+  }
+
+  .gate-text {
+    max-width: 44ch;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .gate-row {
+    display: flex;
+    gap: 8px;
+    width: min(100%, 360px);
+    margin-top: 6px;
+  }
+
+  .gate-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 14px;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    background: #0d0d0d;
+    color: #fff;
+    font: inherit;
+  }
+
+  .gate-row input:focus {
+    border-color: var(--red-soft);
+    outline: none;
+  }
+
+  .gate-error {
+    color: var(--red-soft);
+    font-size: 0.85rem;
+  }
+</style>

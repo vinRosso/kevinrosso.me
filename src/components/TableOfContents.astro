@@ -1,0 +1,145 @@
+---
+interface Props {
+  headings: { depth: number; slug: string; text: string }[];
+}
+
+// Only sections (##) and subsections (###).
+const items = Astro.props.headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+{
+  items.length >= 2 && (
+    <details class="toc" data-toc>
+      <summary>On this page</summary>
+      <ol>
+        {items.map((h) => (
+          <li class:list={{ sub: h.depth === 3 }}>
+            <a href={`#${h.slug}`} data-slug={h.slug}>
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </details>
+  )
+}
+
+<script>
+  const toc = document.querySelector<HTMLDetailsElement>('[data-toc]');
+  if (toc) {
+    // Wide screens: always open and fixed beside the post. Narrow: collapsed block above the text.
+    const wide = matchMedia('(min-width: 1280px)');
+    toc.open = wide.matches;
+    wide.addEventListener('change', () => (toc.open = wide.matches));
+
+    // Highlight the section being read.
+    const links = [...toc.querySelectorAll<HTMLAnchorElement>('a[data-slug]')];
+    const heads = links
+      .map((a) => document.getElementById(a.dataset.slug!))
+      .filter((h): h is HTMLElement => !!h);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      let current = heads[0];
+      for (const h of heads) if (h.getBoundingClientRect().top <= 140) current = h;
+      links.forEach((a) => {
+        const on = a.dataset.slug === current?.id;
+        a.classList.toggle('current', on);
+        if (on) a.setAttribute('aria-current', 'location');
+        else a.removeAttribute('aria-current');
+      });
+    };
+    addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(update);
+        }
+      },
+      { passive: true },
+    );
+    update();
+  }
+</script>
+
+<style>
+  .toc {
+    margin-top: 28px;
+    padding: 12px 18px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 0.9rem;
+  }
+
+  summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  ol {
+    display: grid;
+    gap: 2px;
+    margin: 12px 0 4px;
+    padding: 0;
+    list-style: none;
+  }
+
+  a {
+    display: block;
+    padding: 4px 0 4px 12px;
+    border-left: 2px solid transparent;
+    color: var(--muted);
+    line-height: 1.3;
+    text-decoration: none;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .sub a {
+    padding-left: 26px;
+    font-size: 0.85rem;
+  }
+
+  a:hover,
+  a:focus-visible {
+    color: #fff;
+  }
+
+  a.current {
+    border-left-color: var(--red);
+    color: #fff;
+  }
+
+  /* Wide screens: fixed in the free space on the right of the post */
+  @media (min-width: 1280px) {
+    .toc {
+      position: fixed;
+      top: 130px;
+      left: calc(50% + 430px + 32px);
+      width: min(250px, calc(50vw - 430px - 56px));
+      max-height: calc(100svh - 240px);
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      border: 0;
+      background: transparent;
+      scrollbar-width: thin;
+      filter: url(#halo-sm);
+    }
+
+    summary {
+      pointer-events: none;
+      margin-bottom: 4px;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+  }
+</style>

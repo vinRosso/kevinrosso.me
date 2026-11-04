@@ -1,0 +1,134 @@
+:root {
+  --bg: #101010;
+  --surface: #1f1f1f;
+  --surface-2: #2a2a2a;
+  --text: #ffffff;
+  --muted: #a3a3a3;
+  --red: #de2327;
+  --red-soft: #e24043;
+  --font: 'Montserrat Variable', 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --gutter: clamp(16px, 5vw, 80px);
+  --nav-h: 64px;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-weight: 300;
+  line-height: 1.5;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  position: relative;
+  z-index: 1;
+}
+
+img,
+svg,
+video,
+iframe {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: var(--red-soft);
+  text-underline-offset: 4px;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+p {
+  margin: 0;
+}
+
+.em {
+  color: var(--red-soft);
+  font-weight: 400;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 3px solid var(--red-soft);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--red-soft);
+  font: 700 0.95rem/1 var(--font);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  background: rgb(226 64 67 / 0.23);
+}
+
+.btn--solid {
+  /* White text needs at least 4.5:1: --red-soft (#e24043) only reaches 4.2:1 */
+  background: var(--red);
+  color: #fff;
+}
+
+.btn--solid:hover,
+.btn--solid:focus-visible {
+  background: #c81e22;
+}
+
+:focus-visible {
+  outline: 2px solid var(--red-soft);
+  outline-offset: 3px;
+}
+
+/* Section headings with the dark outline that cuts through the lines */
+.lead {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  font-size: clamp(1.4rem, 3.2vw, 2.4rem);
+  font-weight: 100;
+  line-height: 1.25;
+  -webkit-text-stroke: 10px var(--bg);
+  paint-order: stroke fill;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

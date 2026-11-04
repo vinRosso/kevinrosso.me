@@ -1,0 +1,200 @@
+---
+import Reel from './Reel.astro';
+import Posters from './Posters.astro';
+import { site, yearsSince } from '../data/site';
+
+const rigging = yearsSince(site.riggingSince);
+const coding = yearsSince(site.codingSince);
+---
+
+<section id="about" class="about">
+  <h2 class="lead">
+    I've been a 3D rigger for <span class="em">{rigging} years</span> and<br />
+    I've been writing code for the last <span class="em">{coding} years</span>.
+  </h2>
+
+  <div class="reel-wrap">
+    <Reel />
+  </div>
+
+  <Posters />
+
+  <div class="story">
+    <div class="story-text">
+      <p>
+        I used to think <span class="em">logic</span> and <span class="em">creativity</span> lived on opposite
+        planets. Then I discovered <span class="em">rigging</span> and made them shake hands.
+      </p>
+      <p>
+        Now I <span class="em">build tools</span>, solve problems, and occasionally <span class="em"
+          >break things</span
+        > just to see how they work.
+      </p>
+      <p>
+        I thrive in teams, question everything, and believe the best ideas come from <span class="em">sharing knowledge</span>.
+      </p>
+    </div>
+
+    <aside class="docs" aria-label="Resume and portfolio" data-docs>
+      <iframe
+        class="viewer"
+        title={site.documents[0].label}
+        data-src={`https://drive.google.com/file/d/${site.documents[0].fileId}/preview`}
+        allow="autoplay"></iframe>
+      <div class="tabs" role="tablist">
+        {
+          site.documents.map((d, i) => (
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected={i === 0 ? 'true' : 'false'}
+              data-file={d.fileId}
+            >
+              {d.label}
+            </button>
+          ))
+        }
+      </div>
+    </aside>
+  </div>
+</section>
+
+<script>
+  const docs = document.querySelector<HTMLElement>('[data-docs]');
+  if (docs) {
+    const tabs = [...docs.querySelectorAll<HTMLButtonElement>('.tab')];
+    const frame = docs.querySelector<HTMLIFrameElement>('.viewer')!;
+    const show = (tab: HTMLButtonElement) => {
+      const id = tab.dataset.file!;
+      tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+      frame.title = tab.textContent?.trim() ?? '';
+      frame.src = `https://drive.google.com/file/d/${id}/preview`;
+    };
+    tabs.forEach((t) => t.addEventListener('click', () => show(t)));
+
+    // The Drive viewer weighs about 2 MB: it is only loaded when the section is about to be seen.
+    const first = () => {
+      if (!frame.src) frame.src = frame.dataset.src!;
+    };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            first();
+            io.disconnect();
+          }
+        },
+        { rootMargin: '200px' },
+      );
+      io.observe(frame);
+    } else {
+      first();
+    }
+  }
+</script>
+
+<style>
+  .about {
+    position: relative;
+    padding: 120px var(--gutter) 60px;
+    /* The About link lands on the heading, with the whole reel in view. */
+    scroll-margin-top: -100px;
+  }
+
+  .reel-wrap {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 960px);
+    margin: 48px auto 72px;
+  }
+
+  .story {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(32px, 6vw, 96px);
+    align-items: center;
+    max-width: 1300px;
+    margin: 120px auto 0;
+    padding: 60px 0 40px;
+  }
+
+  .story-text {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 1.7em;
+    max-width: 34em;
+    font-size: clamp(1.05rem, 1.55vw, 1.5rem);
+    font-weight: 300;
+    line-height: 1.55;
+    /* Same round dark halo as the contacts text */
+    filter: url(#halo-lg);
+  }
+
+  /* A plain PDF window on the dark page, with the two tabs underneath. */
+  .docs {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 540px);
+    margin-inline: auto;
+  }
+
+  .viewer {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border: 2px solid var(--bg);
+    background: var(--bg);
+    color-scheme: dark;
+  }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tab {
+    padding: 10px 0 0;
+    border: 0;
+    border-top: 4px solid transparent;
+    background: transparent;
+    color: #fff;
+    font: 400 1rem var(--font);
+    text-align: center;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .tab:hover,
+  .tab:focus-visible {
+    color: var(--red-soft);
+  }
+
+  .tab[aria-selected='true'] {
+    border-top-color: var(--red);
+  }
+
+  @media (max-width: 991px) {
+    .story {
+      grid-template-columns: 1fr;
+      margin-top: 80px;
+    }
+
+    .story-text {
+      font-size: clamp(1.05rem, 3.6vw, 1.4rem);
+    }
+  }
+
+  @media (max-width: 479px) {
+    .about {
+      padding-top: 90px;
+      scroll-margin-top: -60px;
+    }
+
+    .story-text {
+      line-height: 1.5;
+    }
+  }
+</style>

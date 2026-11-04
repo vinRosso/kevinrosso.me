@@ -1,0 +1,22 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# secrets (reel link and password)
+.env
+.env.*
+!.env.example
+reel-tokens.txt
+
+# logs
+npm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# Files waiting to be deleted by hand
+_to_delete/

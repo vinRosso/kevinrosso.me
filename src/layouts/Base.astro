@@ -1,0 +1,138 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import NavBar from '../components/NavBar.astro';
+import PageLines from '../components/PageLines.astro';
+import '@fontsource-variable/montserrat';
+import '@fontsource-variable/montserrat/wght-italic.css';
+import { site } from '../data/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  home?: boolean;
+  /** Keep the page out of search results (tag pages, 404, unlisted posts). */
+  noindex?: boolean;
+  /** Set for blog posts. */
+  article?: { published: Date; tags: string[] };
+  /** Extra structured data (JSON-LD) for the page. */
+  jsonLd?: Record<string, unknown>[];
+}
+
+const { title, description = site.description, image, home = false, noindex = false, article, jsonLd = [] } = Astro.props;
+const pageTitle = title ? `${title} | ${site.name}` : site.title;
+// One address per page: always with the trailing slash, never with query strings.
+const canonical = new URL(Astro.url.pathname.replace(/\/?$/, '/'), Astro.site);
+// Link preview image: the post cover when there is one, otherwise the default card.
+const ogImage = new URL(image ?? '/og.jpg', Astro.site).href;
+const origin = String(Astro.site).replace(/\/$/, '');
+const person = {
+  '@type': 'Person',
+  '@id': `${origin}/#person`,
+  name: site.name,
+  jobTitle: site.role,
+  url: `${origin}/`,
+  image: new URL('/og.jpg', Astro.site).href,
+  sameAs: site.socials.filter((s) => s.href).map((s) => s.href),
+  knowsAbout: site.knowsAbout,
+};
+const website = {
+  '@type': 'WebSite',
+  '@id': `${origin}/#website`,
+  name: site.name,
+  url: `${origin}/`,
+  inLanguage: 'en',
+  publisher: { '@id': `${origin}/#person` },
+};
+const graph = [...(home ? [person, website] : []), ...jsonLd];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/webclip.png" />
+    <meta name="theme-color" content="#101010" />
+    <meta name="author" content={site.name} />
+    <meta
+      name="robots"
+      content={noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1'}
+    />
+
+    <meta property="og:type" content={article ? 'article' : 'website'} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content={title ?? site.title} />
+    {article && <meta property="article:published_time" content={article.published.toISOString()} />}
+    {article && <meta property="article:author" content={site.name} />}
+    {article?.tags.map((t) => <meta property="article:tag" content={t} />)}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="sitemap" href="/sitemap.xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${site.name} - Blog`} href="/rss.xml" />
+    {
+      graph.length > 0 && (
+        <script type="application/ld+json" set:html={JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')} />
+      )
+    }
+    {
+      site.goatcounter && (
+        <script
+          is:inline
+          async
+          data-goatcounter={`https://${site.goatcounter}.goatcounter.com/count`}
+          src="https://gc.zgo.at/count.js"
+        />
+      )
+    }
+  </head>
+  <body class={home ? 'is-home' : ''}>
+    <!-- Round dark halo around text, used where the lines pass behind it.
+         The letters are dilated, blurred and thresholded into a rounded,
+         continuous shape filled with the background colour. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="halo-lg" x="-10%" y="-60%" width="120%" height="220%" color-interpolation-filters="sRGB">
+          <feMorphology in="SourceAlpha" operator="dilate" radius="9" result="grow" />
+          <feGaussianBlur in="grow" stdDeviation="3" result="soft" />
+          <feComponentTransfer in="soft" result="shape">
+            <feFuncA type="linear" slope="6" intercept="-2" />
+          </feComponentTransfer>
+          <feFlood flood-color="#101010" />
+          <feComposite in2="shape" operator="in" result="halo" />
+          <feMerge><feMergeNode in="halo" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id="halo-sm" x="-10%" y="-80%" width="120%" height="260%" color-interpolation-filters="sRGB">
+          <feMorphology in="SourceAlpha" operator="dilate" radius="5" result="grow" />
+          <feGaussianBlur in="grow" stdDeviation="2" result="soft" />
+          <feComponentTransfer in="soft" result="shape">
+            <feFuncA type="linear" slope="6" intercept="-2" />
+          </feComponentTransfer>
+          <feFlood flood-color="#101010" />
+          <feComposite in2="shape" operator="in" result="halo" />
+          <feMerge><feMergeNode in="halo" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+    </svg>
+    <PageLines />
+    <Header home={home} />
+    <main id="top">
+      <slot />
+    </main>
+    <NavBar home={home} />
+
+  </body>
+</html>
