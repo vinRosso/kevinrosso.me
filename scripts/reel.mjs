@@ -3,6 +3,7 @@
 //
 //   npm run reel -- link framestore-melbourne   new private link for one application
 //   npm run reel -- links                       list all private links
+//   npm run reel -- url https://vimeo.com/ID/HASH   change the reel video
 //   npm run reel -- password NEW_PASSWORD       change the password
 //   npm run reel -- password --off              remove the password (private links keep working)
 //   npm run reel -- public                      show the reel to everyone, no password
@@ -87,6 +88,7 @@ function usage() {
   console.log(`Usage:
   npm run reel -- link <label>        new private link for one application
   npm run reel -- links               list all private links
+  npm run reel -- url <vimeo link>    change the reel video
   npm run reel -- password <new>      change the password
   npm run reel -- password --off      remove the password
   npm run reel -- public              reel visible to everyone
@@ -126,6 +128,25 @@ switch (command) {
       const [label, token] = line.split('=');
       console.log(`${label.padEnd(32)} ${linkFor(token)}`);
     }
+    break;
+  }
+
+  case 'url': {
+    // Same rules as playerUrl() in src/lib/reel.ts: the site converts the address when it builds.
+    let ok = false;
+    try {
+      const u = new URL(value ?? '');
+      ok = /(^|\.)vimeo\.com$/.test(u.hostname) && /\/\d+/.test(u.pathname);
+    } catch {
+      /* not a URL */
+    }
+    if (!ok) {
+      console.error('Give a Vimeo link, e.g. https://vimeo.com/640381362/6d42515b77');
+      process.exit(1);
+    }
+    setEnv('REEL_URL', value);
+    console.log('Reel video changed.');
+    github({ REEL_URL: value });
     break;
   }
 

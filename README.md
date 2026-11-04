@@ -55,6 +55,7 @@ Without these secrets the site shows "Reel available on request".
 ```bash
 npm run reel -- link framestore-melbourne   # new private link for one application
 npm run reel -- links                       # list all private links
+npm run reel -- url https://vimeo.com/ID/HASH     # change the reel video
 npm run reel -- password NEW_PASSWORD       # change the password
 npm run reel -- password --off              # remove the password (private links keep working)
 npm run reel -- public                      # reel visible to everyone, no password
