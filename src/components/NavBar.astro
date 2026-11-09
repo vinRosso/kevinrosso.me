@@ -64,7 +64,20 @@ const isBlog = Astro.url.pathname.startsWith('/blog');
     inset: auto 0 0;
     z-index: 100;
     padding: 28px 16px 18px;
-    background: linear-gradient(transparent, #101010 55%);
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(16 16 16 / 0.028) 5.5%,
+      rgb(16 16 16 / 0.104) 11%,
+      rgb(16 16 16 / 0.216) 16.5%,
+      rgb(16 16 16 / 0.352) 22%,
+      rgb(16 16 16 / 0.500) 27.5%,
+      rgb(16 16 16 / 0.648) 33%,
+      rgb(16 16 16 / 0.784) 38.5%,
+      rgb(16 16 16 / 0.896) 44%,
+      rgb(16 16 16 / 0.972) 49.5%,
+      #101010 55%
+    );
   }
 
   ul {

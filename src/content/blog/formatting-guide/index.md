@@ -224,10 +224,97 @@ pie title Time spent on a rig
 
 *A YouTube video. Replace the code after /embed/ with the ID of your video.*
 
-<!-- A video file of your own: put it in the "public/videos" folder of the project and write
+A video file of your own: put it in the "public/videos" folder of the project and write
 
+```html
 <video controls src="/videos/my-clip.mp4"></video>
--->
+```
+
+You could add `autoplay loop muted playsinline` instead of `control`s` for a looping animation.
+
+### Captions
+
+<!-- A caption is a line in italics, with an empty line between the image and the caption.
+     It is centred under the image in smaller, grey type. -->
+
+![A sample image: two sinuous lines on a dark background](./sample.webp)
+
+*Figure 1: a caption under a single image.*
+
+## Inline images
+
+<!-- Put the image inside <span class="inline-img"> and </span> in the middle of a sentence.
+     It takes the height of the text and the words stay on the same line. -->
+
+Here is a small image <span class="inline-img">![Two sinuous lines](./sample.webp)</span> sitting inside a sentence, with the text kept on the same line.
+
+## Floating images
+
+<!-- <div class="float-right"> (or "float-left") around an image and its caption. The text flows
+     around the figure. Put an empty line after the opening and before the closing tag.
+     On phones the figure goes full width above the text. -->
+
+<div class="float-right">
+
+![Two sinuous lines, floated to the right](./sample.webp)
+
+*A floated figure: the text runs around it on the left.*
+
+</div>
+
+The paragraph keeps going after the figure. The text wraps around the image while the figure is beside it. Use a floated figure for a picture that supports the text next to it, not for one that needs the full width.
+
+This paragraph is the second one, and it also wraps around the figure while it stays beside it.
+
+## Columns
+
+<!-- <div class="columns-2"> or <div class="columns-3">, with one <div> per column. Each column
+     can hold any formatting, images and captions included. On phones the columns stack. -->
+
+<div class="columns-2">
+
+<div>
+
+**Left column.** Text can use any formatting, lists included:
+
+- A point
+- Another point
+
+</div>
+
+<div>
+
+![Two sinuous lines, in the right column](./sample.webp)
+
+*Caption for the image in the right column.*
+
+</div>
+
+</div>
+
+Three columns work the same way, with `class="columns-3"`:
+
+<div class="columns-3">
+
+<div>
+
+**One.** Short text in the first column.
+
+</div>
+
+<div>
+
+**Two.** Short text in the second column.
+
+</div>
+
+<div>
+
+**Three.** Short text in the third column.
+
+</div>
+
+</div>
 
 ## Buttons
 
@@ -292,10 +379,17 @@ Text after a large spacer.
 
 - To another website: [Astro documentation](https://docs.astro.build)
 - To a section of this post: [jump to the maths](#maths) or [jump to the tables](#tables)
+- To a precise point that is not a heading: [jump to the sentence at the end of this section](#my-anchor). See below for how to make the target.
 - To another post: [KR Catenary](/blog/kr-catenary/)
 - To a section of another post: [the formatting guide, banners](/blog/formatting-guide/#banners)
 - To a page of the site: [the About section](/#about), [all posts](/blog/), [posts tagged Python](/blog/tag/python/)
 - To an email address: [write to me](mailto:name@example.com)
+
+<!-- Any spot can be a link target: put an empty <span id="name"></span> where the page should land
+     (here, at the start of the sentence below), then link to it with [text](#name). Use lowercase
+     letters and dashes, and a name no heading already uses. For another post: [text](/blog/post-name/#name). -->
+
+<span id="my-anchor"></span>This sentence is the target of the "precise point" link above: the page scrolls here, even though it is not a heading.
 
 ## Small extras
 

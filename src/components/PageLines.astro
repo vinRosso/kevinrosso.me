@@ -316,8 +316,34 @@
     overflow: hidden;
     pointer-events: none;
     /* The lines fade out at the end of the page, like they fade in under the header at the top. */
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 120px),
+      rgb(0 0 0 / 0.972) calc(100% - 108px),
+      rgb(0 0 0 / 0.896) calc(100% - 96px),
+      rgb(0 0 0 / 0.784) calc(100% - 84px),
+      rgb(0 0 0 / 0.648) calc(100% - 72px),
+      rgb(0 0 0 / 0.500) calc(100% - 60px),
+      rgb(0 0 0 / 0.352) calc(100% - 48px),
+      rgb(0 0 0 / 0.216) calc(100% - 36px),
+      rgb(0 0 0 / 0.104) calc(100% - 24px),
+      rgb(0 0 0 / 0.028) calc(100% - 12px),
+      transparent calc(100% - 0px)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 120px),
+      rgb(0 0 0 / 0.972) calc(100% - 108px),
+      rgb(0 0 0 / 0.896) calc(100% - 96px),
+      rgb(0 0 0 / 0.784) calc(100% - 84px),
+      rgb(0 0 0 / 0.648) calc(100% - 72px),
+      rgb(0 0 0 / 0.500) calc(100% - 60px),
+      rgb(0 0 0 / 0.352) calc(100% - 48px),
+      rgb(0 0 0 / 0.216) calc(100% - 36px),
+      rgb(0 0 0 / 0.104) calc(100% - 24px),
+      rgb(0 0 0 / 0.028) calc(100% - 12px),
+      transparent calc(100% - 0px)
+    );
   }
 
   svg {

@@ -33,7 +33,21 @@ const { home = false } = Astro.props;
     inset: 0 0 auto;
     z-index: 100;
     padding: 2svh 5svh 4svh;
-    background: linear-gradient(#101010 30%, transparent);
+    background: linear-gradient(
+      to bottom,
+      #101010 0%,
+      #101010 30%,
+      rgb(16 16 16 / 0.972) 37%,
+      rgb(16 16 16 / 0.896) 44%,
+      rgb(16 16 16 / 0.784) 51%,
+      rgb(16 16 16 / 0.648) 58%,
+      rgb(16 16 16 / 0.500) 65%,
+      rgb(16 16 16 / 0.352) 72%,
+      rgb(16 16 16 / 0.216) 79%,
+      rgb(16 16 16 / 0.104) 86%,
+      rgb(16 16 16 / 0.028) 93%,
+      transparent 100%
+    );
     pointer-events: none;
   }
 

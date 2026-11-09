@@ -31,7 +31,7 @@ const href = `/blog/${postSlug(post)}/`;
   .tile {
     position: relative;
     display: block;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9; /* same ratio as the cover on the post page */
     overflow: hidden;
     border-radius: 6px;
     background: var(--surface);
@@ -56,7 +56,21 @@ const href = `/blog/${postSlug(post)}/`;
   .shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgb(16 16 16 / 0.95) 0%, rgb(16 16 16 / 0.55) 45%, transparent 75%);
+    /* Eased (smoothstep) fade rather than a straight line, so there is no visible edge */
+    background: linear-gradient(
+      to top,
+      rgb(16 16 16 / 0.95) 0%,
+      rgb(16 16 16 / 0.923) 8%,
+      rgb(16 16 16 / 0.851) 16%,
+      rgb(16 16 16 / 0.745) 24%,
+      rgb(16 16 16 / 0.616) 32%,
+      rgb(16 16 16 / 0.475) 40%,
+      rgb(16 16 16 / 0.334) 48%,
+      rgb(16 16 16 / 0.205) 56%,
+      rgb(16 16 16 / 0.099) 64%,
+      rgb(16 16 16 / 0.027) 72%,
+      transparent 80%
+    );
   }
 
   .draft {

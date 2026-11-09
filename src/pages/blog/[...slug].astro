@@ -31,7 +31,9 @@ interface Props {
 
 const { post, newer, older } = Astro.props;
 const { title, description, date, cover, coverAlt, tags, externalUrl, externalLabel, toc, unlisted } = post.data;
-const { Content, headings } = await render(post);
+const { Content, headings, remarkPluginFrontmatter } = await render(post);
+// Headings with maths: KaTeX-rendered labels from src/plugins/rehype-heading-math.mjs.
+const headingLabels: Record<string, string> = remarkPluginFrontmatter?.headingLabels ?? {};
 
 // Link previews want a 1.91:1 JPEG: LinkedIn and others do not all read WebP.
 const preview = cover
@@ -74,6 +76,7 @@ const jsonLd = [
   jsonLd={jsonLd}
 >
   <article class="post">
+    <div class="masthead">
     <header class="post-header">
       <a class="back" href="/blog/">&#10229; All posts</a>
       <h1>{title}</h1>
@@ -106,8 +109,9 @@ const jsonLd = [
         />
       )
     }
+    </div>
 
-    {toc && <TableOfContents headings={headings} />}
+    {toc && <TableOfContents headings={headings} labels={headingLabels} />}
 
     <div class="prose">
       <Content />
@@ -150,6 +154,119 @@ const jsonLd = [
     </nav>
   </article>
 </Base>
+
+<script>
+  // Embeds: an <iframe> with width and height attributes keeps that shape (scaled to the column
+  // width) instead of the default 16:9. width="1500px" height="1500px" gives a square.
+  document.querySelectorAll<HTMLIFrameElement>('.prose iframe[width][height]').forEach((frame) => {
+    const w = parseFloat(frame.getAttribute('width') ?? '');
+    const h = parseFloat(frame.getAttribute('height') ?? '');
+    if (w > 0 && h > 0) frame.style.aspectRatio = `${w} / ${h}`;
+  });
+</script>
+
+<script>
+  // Link previews: hover (or keyboard focus) an external link to see a card with the target's
+  // title, description and image. The data comes from the rehype-link-previews plugin.
+  const previewLinks = document.querySelectorAll<HTMLAnchorElement>('.prose a[data-preview-title]');
+  if (previewLinks.length && matchMedia('(hover: hover)').matches) {
+    const card = document.createElement('div');
+    card.className = 'link-preview';
+    card.setAttribute('role', 'tooltip');
+    card.id = 'link-preview';
+    document.body.append(card);
+
+    let timer: number | undefined;
+    let current: HTMLAnchorElement | undefined;
+
+    const hide = () => {
+      clearTimeout(timer);
+      card.classList.remove('is-visible');
+      current?.removeAttribute('aria-describedby');
+      current = undefined;
+    };
+
+    const show = (a: HTMLAnchorElement) => {
+      current = a;
+      card.replaceChildren();
+      const image = a.dataset.previewImage;
+      if (image) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.addEventListener('error', () => img.remove());
+        img.src = image;
+        card.append(img);
+      }
+      const body = document.createElement('div');
+      body.className = 'link-preview-body';
+      const site = document.createElement('span');
+      site.className = 'link-preview-site';
+      site.textContent = a.dataset.previewSite ?? new URL(a.href).hostname;
+      const title = document.createElement('strong');
+      title.textContent = a.dataset.previewTitle ?? '';
+      body.append(site, title);
+      if (a.dataset.previewDesc) {
+        const desc = document.createElement('span');
+        desc.className = 'link-preview-desc';
+        desc.textContent = a.dataset.previewDesc;
+        body.append(desc);
+      }
+      card.append(body);
+      a.setAttribute('aria-describedby', card.id);
+
+      const r = a.getBoundingClientRect();
+      const w = Math.min(340, innerWidth - 24);
+      card.style.width = `${w}px`;
+      card.style.left = `${Math.max(12, Math.min(r.left, innerWidth - w - 12))}px`;
+      card.classList.add('is-visible');
+      const h = card.offsetHeight;
+      const below = r.bottom + 10;
+      card.style.top = `${below + h > innerHeight - 12 && r.top - h - 10 > 12 ? r.top - h - 10 : below}px`;
+    };
+
+    previewLinks.forEach((a) => {
+      a.addEventListener('mouseenter', () => {
+        clearTimeout(timer);
+        timer = window.setTimeout(() => show(a), 250);
+      });
+      a.addEventListener('focus', () => show(a));
+      a.addEventListener('mouseleave', hide);
+      a.addEventListener('blur', hide);
+    });
+    addEventListener('scroll', hide, { passive: true });
+    addEventListener('keydown', (e) => e.key === 'Escape' && hide());
+  }
+</script>
+
+<script>
+  // Post images: click one to view it enlarged (skips inline icons and linked images).
+  const floatImgs = [...document.querySelectorAll<HTMLImageElement>('.prose img')].filter(
+    (img) => !img.closest('.inline-img, a')
+  );
+  if (floatImgs.length) {
+    const box = document.createElement('dialog');
+    box.className = 'lightbox';
+    box.setAttribute('aria-label', 'Enlarged image');
+    const big = document.createElement('img');
+    box.append(big);
+    document.body.append(box);
+    box.addEventListener('click', () => box.close());
+    floatImgs.forEach((img) => {
+      img.classList.add('zoomable');
+      // Wrapper carries the hover icon (an <img> can't hold a pseudo-element).
+      const wrap = document.createElement('span');
+      wrap.className = 'zoom-wrap';
+      img.replaceWith(wrap);
+      wrap.append(img);
+      img.addEventListener('click', () => {
+        big.src = img.currentSrc || img.src;
+        big.alt = img.alt;
+        box.showModal();
+      });
+    });
+  }
+</script>
 
 <script>
   // Mermaid graphs: only downloaded when the post contains one.
@@ -269,6 +386,87 @@ const jsonLd = [
     border-radius: 12px;
   }
 
+  /* Cover integrated with the header: the cover dissolves into the page background
+     and the title, date and tags sit on the fade. */
+  .masthead {
+    position: relative;
+  }
+
+  .masthead:has(.post-cover) {
+    display: flex;
+    align-items: flex-end;
+    aspect-ratio: 16 / 9; /* same ratio as the tiles; grows if the text needs more room */
+  }
+
+  .masthead .post-cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    object-fit: cover;
+    border-radius: 12px;
+    /* Eased (smoothstep) fade rather than a straight line, so there is no visible edge */
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 25%,
+      rgb(0 0 0 / 0.972) 32%,
+      rgb(0 0 0 / 0.896) 40%,
+      rgb(0 0 0 / 0.784) 47%,
+      rgb(0 0 0 / 0.648) 54%,
+      rgb(0 0 0 / 0.5) 61%,
+      rgb(0 0 0 / 0.352) 69%,
+      rgb(0 0 0 / 0.216) 76%,
+      rgb(0 0 0 / 0.104) 83%,
+      rgb(0 0 0 / 0.028) 91%,
+      transparent 98%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 25%,
+      rgb(0 0 0 / 0.972) 32%,
+      rgb(0 0 0 / 0.896) 40%,
+      rgb(0 0 0 / 0.784) 47%,
+      rgb(0 0 0 / 0.648) 54%,
+      rgb(0 0 0 / 0.5) 61%,
+      rgb(0 0 0 / 0.352) 69%,
+      rgb(0 0 0 / 0.216) 76%,
+      rgb(0 0 0 / 0.104) 83%,
+      rgb(0 0 0 / 0.028) 91%,
+      transparent 98%
+    );
+  }
+
+  .masthead:has(.post-cover) .post-header {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    padding: 28px 32px;
+  }
+
+  .masthead:has(.post-cover) h1,
+  .masthead:has(.post-cover) .meta,
+  .masthead:has(.post-cover) .back {
+    filter: none;
+    text-shadow: 0 2px 14px rgb(0 0 0 / 0.7);
+  }
+
+  /* Soft shadow so the link stays readable over any cover */
+  .masthead:has(.post-cover) .back {
+    color: #fff;
+    text-shadow: 0 0 3px rgb(0 0 0 / 0.9), 0 1px 8px rgb(0 0 0 / 0.85), 0 2px 22px rgb(0 0 0 / 0.9);
+  }
+
+  .masthead:has(.post-cover) .tag {
+    background: rgb(16 16 16 / 0.6);
+  }
+
+  @media (max-width: 600px) {
+    .masthead:has(.post-cover) .post-header {
+      padding: 20px;
+    }
+  }
+
   .prose {
     margin-top: 32px;
     font-size: 1.1rem;
@@ -305,6 +503,22 @@ const jsonLd = [
   .prose :global(iframe) {
     aspect-ratio: 16 / 9;
     border: 0;
+  }
+
+  /* Cropped embed: <div class="embed-crop" style="--crop-left: 0.2; --crop-right: 0.1"> around an
+     iframe trims that fraction of its width off each side (for embeds whose framing can't be changed). */
+  .prose :global(.embed-crop) {
+    --keep: calc(1 - var(--crop-left, 0) - var(--crop-right, 0));
+    overflow: hidden;
+    border-radius: 8px;
+  }
+
+  .prose :global(.embed-crop iframe) {
+    display: block;
+    width: calc(100% / var(--keep));
+    max-width: none;
+    margin-left: calc(-100% * var(--crop-left, 0) / var(--keep));
+    border-radius: 0;
   }
 
   .prose :global(code) {
@@ -403,6 +617,7 @@ const jsonLd = [
   /* Banners: > [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION] */
   .prose :global(.callout) {
     --accent: #6aa9ff;
+    clear: both; /* sit on their own line below any floated figure */
     padding: 16px 20px;
     border-left: 4px solid var(--accent);
     border-radius: 0 8px 8px 0;
@@ -519,6 +734,9 @@ const jsonLd = [
 
   /* Caption: an italic-only paragraph right after an image or a video */
   .prose :global(p:has(> img:only-child) + p:has(> em:only-child)),
+  .prose :global(p:has(> .zoom-wrap:only-child) + p:has(> em:only-child)),
+  .prose :global(p:has(> video:only-child) + p:has(> em:only-child)),
+  .prose :global(video + p:has(> em:only-child)),
   .prose :global(iframe + p:has(> em:only-child)) {
     margin-top: 0.6em;
     color: var(--muted);
@@ -535,6 +753,192 @@ const jsonLd = [
     color: var(--muted);
     font-size: 0.9rem;
     text-align: center;
+  }
+
+  /* Columns: <div class="columns-2"> or <div class="columns-3">, one <div> per column.
+     Stacks into a single column on phones. */
+  .prose :global(.columns-2),
+  .prose :global(.columns-3) {
+    display: grid;
+    gap: 24px;
+    margin-top: 1.6em;
+    align-items: start;
+  }
+
+  .prose :global(.columns-2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prose :global(.columns-3) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .prose :global(.columns-2 > *),
+  .prose :global(.columns-3 > *) {
+    min-width: 0;
+  }
+
+  .prose :global(.columns-2 > * > * + *),
+  .prose :global(.columns-3 > * > * + *) {
+    margin-top: 1em;
+  }
+
+  /* Inline images: <span class="inline-img">![alt](./file.webp)</span> inside a sentence */
+  .prose :global(.inline-img img) {
+    display: inline;
+    width: auto;
+    height: 1.6em;
+    vertical-align: -0.4em;
+    border-radius: 4px;
+  }
+
+  /* Floating figures: <div class="float-right"> or "float-left" holding an image and its caption.
+     The text flows around it. */
+  .prose :global(.float-right),
+  .prose :global(.float-left) {
+    width: min(44%, 340px);
+    margin-top: 0.3em;
+    margin-bottom: 0.8em;
+  }
+
+  .prose :global(.float-right) {
+    float: right;
+    margin-left: 1.6em;
+  }
+
+  .prose :global(.float-left) {
+    float: left;
+    margin-right: 1.6em;
+  }
+
+  .prose :global(img.zoomable) {
+    cursor: zoom-in;
+  }
+
+  .prose :global(.zoom-wrap) {
+    position: relative;
+    display: block;
+  }
+
+  .prose :global(.zoom-wrap::after) {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgb(0 0 0 / 0.65)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E")
+      center / 18px no-repeat;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+
+  .prose :global(.zoom-wrap:hover::after) {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    .prose :global(.zoom-wrap::after) {
+      opacity: 0.85;
+    }
+  }
+
+  :global(.link-preview) {
+    position: fixed;
+    z-index: 200;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+  }
+
+  :global(.link-preview.is-visible) {
+    opacity: 1;
+    transform: none;
+  }
+
+  :global(.link-preview img) {
+    display: block;
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+  }
+
+  :global(.link-preview-body) {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px 14px;
+  }
+
+  :global(.link-preview-site) {
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+
+  :global(.link-preview-body strong) {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  :global(.link-preview-desc) {
+    color: #cfcfcf;
+    font-weight: 300;
+  }
+
+  :global(dialog.lightbox) {
+    max-width: 96vw;
+    max-height: 96vh;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-out;
+    outline: none;
+  }
+
+  :global(dialog.lightbox img) {
+    outline: none;
+  }
+
+  :global(dialog.lightbox)::backdrop {
+    background: rgb(0 0 0 / 0.85);
+  }
+
+  :global(dialog.lightbox img) {
+    display: block;
+    max-width: 96vw;
+    max-height: 96vh;
+    margin: auto;
+    border-radius: 6px;
+  }
+
+  .prose :global(.float-right > * + *),
+  .prose :global(.float-left > * + *) {
+    margin-top: 0.6em;
+  }
+
+  @media (max-width: 600px) {
+    .prose :global(.columns-2),
+    .prose :global(.columns-3) {
+      grid-template-columns: 1fr;
+    }
+
+    .prose :global(.float-right),
+    .prose :global(.float-left) {
+      float: none;
+      width: 100%;
+      margin: 1.2em 0;
+    }
   }
 
   /* Buttons: <a class="btn">, <a class="btn btn--solid">, grouped in <p class="buttons"> */

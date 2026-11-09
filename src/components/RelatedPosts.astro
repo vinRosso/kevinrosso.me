@@ -37,27 +37,45 @@ const title = related.length > 0 ? 'Related posts' : 'More posts';
 <style>
   .related {
     margin-top: 72px;
+    padding: 28px;
+    border-radius: 10px;
+    background: var(--surface);
   }
 
   h2 {
     margin-bottom: 20px;
     font-size: 1.4rem;
-    filter: url(#halo-sm);
   }
 
+  /* Compact tiles: this is a footer aside, not a gallery */
   .grid {
     display: grid;
-    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 230px));
+    gap: 14px;
   }
 
-  .grid:has(> :only-child) {
-    max-width: 420px;
+  .grid :global(.tile) {
+    aspect-ratio: 16 / 9;
   }
 
-  @media (max-width: 760px) {
+  .grid :global(.caption) {
+    padding: 12px 14px 14px;
+    gap: 6px;
+  }
+
+  .grid :global(.tile-title) {
+    font-size: 0.95rem;
+    border-bottom-width: 2px;
+    padding-bottom: 3px;
+  }
+
+  .grid :global(.tile-desc) {
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 520px) {
     .grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
     }
   }
 </style>

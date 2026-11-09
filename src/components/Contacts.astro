@@ -118,9 +118,11 @@ if (!email) console.warn('[contacts] CONTACT_EMAIL is not set: the email link wi
 
   .social-link {
     display: block;
-    border-radius: 16px;
+    /* Same corner radius for all icons (the three SVGs each round their corners
+       differently); the dark cut-out around them follows it proportionally. */
+    border-radius: 20%;
     background: var(--bg);
-    box-shadow: 0 0 0 14px var(--bg);
+    box-shadow: 0 0 0 clamp(8px, 1.2vw, 14px) var(--bg);
     transition: transform 0.2s;
   }
 
@@ -129,8 +131,10 @@ if (!email) console.warn('[contacts] CONTACT_EMAIL is not set: the email link wi
   }
 
   .social-link img {
+    display: block;
     width: clamp(40px, 5vw, 64px);
     height: auto;
+    border-radius: 20%;
   }
 
   .copy {

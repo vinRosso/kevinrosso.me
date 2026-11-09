@@ -1,7 +1,10 @@
 ---
 interface Props {
   headings: { depth: number; slug: string; text: string }[];
+  // slug -> HTML label, for headings whose plain text would garble maths.
+  labels?: Record<string, string>;
 }
+const labels = Astro.props.labels ?? {};
 
 // Only sections (##) and subsections (###).
 const items = Astro.props.headings.filter((h) => h.depth === 2 || h.depth === 3);
@@ -14,9 +17,13 @@ const items = Astro.props.headings.filter((h) => h.depth === 2 || h.depth === 3)
       <ol>
         {items.map((h) => (
           <li class:list={{ sub: h.depth === 3 }}>
-            <a href={`#${h.slug}`} data-slug={h.slug}>
-              {h.text}
-            </a>
+            {labels[h.slug] ? (
+              <a href={`#${h.slug}`} data-slug={h.slug} set:html={labels[h.slug]} />
+            ) : (
+              <a href={`#${h.slug}`} data-slug={h.slug}>
+                {h.text}
+              </a>
+            )}
           </li>
         ))}
       </ol>
